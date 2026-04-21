@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Binder's Stash · Arcan Method 2026 — Bottle Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05070f;
+    --surface: #0b0e1a;
+    --surface2: #111526;
+    --surface3: #181d32;
+    --border: #1e2540;
+    --blue: #2563eb;
+    --blue-light: #3b82f6;
+    --blue-glow: #93c5fd;
+    --blue-dim: #1e3a8a;
+    --given-bg: #0f1520;
+    --given-border: #374151;
+    --given-text: #6b7280;
+    --green: #22c55e;
+    --red: #ef4444;
+    --text: #e8eeff;
+    --muted: #4a5580;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 10% 0%, #0d1a3a22 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 100%, #0a1530 0%, transparent 60%);
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(180deg, #0d1120 0%, #080b18 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px 12px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 19px; font-weight: 900;
+    color: var(--blue-glow);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .brand span { color: var(--blue-light); font-size: 13px; font-family: 'DM Mono', monospace; display: block; font-weight: 400; letter-spacing: 1px; margin-top: 2px; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+  .barrel-badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .gear-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 17px; padding: 2px; transition: color 0.2s; }
+  .gear-btn:hover { color: var(--blue-light); }
+
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 5px; overflow: hidden; }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue-dim) 0%, var(--blue-light) 60%, var(--blue-glow) 100%);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    margin-top: 5px; font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace;
+  }
+
+  /* ── FILTER ── */
+  .filter-bar {
+    padding: 10px 14px;
+    display: flex; gap: 7px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11px; font-weight: 600;
+    color: var(--muted);
+    cursor: pointer; white-space: nowrap; transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+  /* ── GRID ── */
+  .grid-scroll { overflow-y: auto; max-height: calc(100vh - 148px); }
+  .grid-container {
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+    gap: 7px;
+  }
+
+  /* ── BOTTLE CELL ── */
+  .bottle-cell {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px; font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: transform 0.1s, box-shadow 0.15s;
+    position: relative; overflow: hidden;
+    user-select: none;
+  }
+  .bottle-cell:active { transform: scale(0.90); }
+  .bottle-cell:hover { box-shadow: 0 0 0 2px var(--blue-dim); }
+
+  /* Available */
+  .bottle-cell.available {
+    background: var(--surface2);
+    border-color: var(--border);
+    color: var(--muted);
+  }
+  /* Reserved */
+  .bottle-cell.reserved {
+    background: linear-gradient(135deg, #0d1a3a 0%, #0a1228 100%);
+    border-color: var(--blue);
+    color: var(--blue-light);
+  }
+  .bottle-cell.reserved::after {
+    content: '◷';
+    position: absolute; top: 2px; right: 4px;
+    font-size: 8px; color: var(--blue-light);
+  }
+
+  /* Given — greyed out with diagonal name */
+  .bottle-cell.given {
+    background: var(--given-bg);
+    border-color: var(--given-border);
+    color: var(--given-text);
+  }
+  .bottle-cell.given .cell-num {
+    position: relative; z-index: 1;
+    font-size: 10px;
+    color: #374151;
+  }
+  /* Diagonal name overlay using SVG via data URI written in JS */
+  .bottle-cell.given .diag-name {
+    position: absolute;
+    inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .bottle-cell.given .diag-name svg {
+    width: 100%; height: 100%;
+    position: absolute; inset: 0;
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8); z-index: 200;
+    align-items: flex-end;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: linear-gradient(180deg, #111526 0%, #0b0e1a 100%);
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 22px 20px 36px;
+    width: 100%; max-width: 560px; margin: 0 auto;
+    animation: slideUp 0.22s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+  .modal-bottle-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px; font-weight: 900;
+    color: var(--blue-glow); line-height: 1; margin-bottom: 3px;
+  }
+  .modal-bottle-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 18px; letter-spacing: 0.5px; }
+
+  .status-toggle { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-bottom: 18px; }
+  .status-btn {
+    padding: 10px 6px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 600;
+    cursor: pointer; text-align: center; transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .status-btn.sel-available { background: var(--surface3); border-color: var(--text); color: var(--text); }
+  .status-btn.sel-reserved  { background: #0d1a3a; border-color: var(--blue); color: var(--blue-light); }
+  .status-btn.sel-given     { background: #111820; border-color: #374151; color: #9ca3af; }
+
+  .modal-field-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .modal-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 11px 13px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px;
+    outline: none; margin-bottom: 13px; transition: border-color 0.2s;
+  }
+  .modal-input:focus { border-color: var(--blue-light); }
+  .modal-input::placeholder { color: var(--muted); }
+
+  .btn-save {
+    width: 100%; background: linear-gradient(135deg, var(--blue) 0%, #1d4ed8 100%);
+    color: #fff; border: none; border-radius: 12px; padding: 15px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-top: 4px;
+    letter-spacing: 0.3px;
+  }
+  .btn-save:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-close-modal {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500; color: var(--muted); cursor: pointer; margin-top: 8px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-close-modal:hover { border-color: var(--muted); color: var(--text); }
+
+  /* ── SETTINGS ── */
+  .settings-panel { display: none; padding: 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .settings-panel.open { display: block; }
+  .settings-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .settings-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; outline: none;
+  }
+  .settings-input:focus { border-color: var(--blue); }
+  .btn-settings-save { background: var(--blue); color: #fff; border: none; border-radius: 8px; padding: 9px 14px; font-weight: 700; font-size: 12px; cursor: pointer; }
+  .settings-help { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface3); border: 1px solid var(--border); border-radius: 24px;
+    padding: 9px 16px; font-size: 12px; font-weight: 500; color: var(--text);
+    z-index: 999; transition: transform 0.3s ease, opacity 0.3s ease; white-space: nowrap; opacity: 0;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error   { border-color: var(--red);   color: var(--red); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">
+        Binder's Stash · Arcan Method 2026
+        <span>SINGLE BARREL · 139 BOTTLES</span>
+      </div>
+      <div class="header-right">
+        <div class="barrel-badge" id="header-stats">— / 139</div>
+        <button class="gear-btn" onclick="toggleSettings()" title="Settings">⚙</button>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-label">
+      <span id="progress-given">0 given</span>
+      <span id="progress-remain">139 remaining</span>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-help" style="margin-bottom:8px;">Paste your Google Sheets Apps Script URL to enable cloud backup on every save.</div>
+    <div class="settings-row">
+      <input class="settings-input" id="sheets-url-setting" placeholder="https://script.google.com/macros/s/..." />
+      <button class="btn-settings-save" onclick="saveSheetsSetting()">Save</button>
+    </div>
+    <div class="settings-help">Each save POSTs: bottle #, recipient, occasion, date, status.</div>
+  </div>
+
+  <!-- Filter -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All 139</button>
+    <button class="filter-btn" onclick="setFilter('available',this)">Available</button>
+    <button class="filter-btn" onclick="setFilter('reserved',this)">Reserved</button>
+    <button class="filter-btn" onclick="setFilter('given',this)">Given</button>
+  </div>
+
+  <!-- Grid -->
+  <div class="grid-scroll">
+    <div class="grid-container" id="bottle-grid"></div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal-box">
+    <div class="modal-handle"></div>
+    <div class="modal-bottle-num" id="modal-bottle-num">Bottle #001</div>
+    <div class="modal-bottle-sub" id="modal-bottle-sub">BINDER'S STASH · AVAILABLE</div>
+    <div class="status-toggle">
+      <div class="status-btn" id="btn-available" onclick="selectStatus('available')">Available</div>
+      <div class="status-btn" id="btn-reserved"  onclick="selectStatus('reserved')">Reserved</div>
+      <div class="status-btn" id="btn-given"      onclick="selectStatus('given')">Given ✓</div>
+    </div>
+    <div id="recipient-fields">
+      <div class="modal-field-label">Recipient Name</div>
+      <input class="modal-input" id="modal-recipient" placeholder="Who received this bottle?" />
+      <div class="modal-field-label">Occasion / Note</div>
+      <input class="modal-input" id="modal-occasion" placeholder="e.g. Birthday, Thank you, Closing gift…" />
+      <div class="modal-field-label">Date Given</div>
+      <input class="modal-input" id="modal-date" type="date" />
+    </div>
+    <button class="btn-save" onclick="saveBottle()">Save Bottle</button>
+    <button class="btn-close-modal" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── PRE-FILLED DATA FROM BINDER'S STASH XLSX ──
+const PRESET = {
+  1:  "Steve O'Brien",   2:  "Steve O'Brien",   3:  "Steve O'Brien",
+  4:  "Patrick Anderson",5:  "Steve O'Brien",   6:  "Karen Meier",
+  7:  "Andrew Lorber",   8:  "Andrew Lorber",   9:  "Andrew Lorber",
+  10: "Andrew Lorber",   11: "Andrew Lorber",   12: "Andrew Lorber",
+  19: "Thomy Meier",     20: "Thomy Meier",     21: "Thomy Meier",
+  22: "Thomy Meier",     23: "Thomy Meier",     24: "Thomy Meier",
+  37: "Peter Trelenberg",38: "Abby Cheng",      39: "Luke Mills",
+  40: "Mark Boyce",      41: "Emily Patton",    42: "Izabella Jones",
+  53: "Robert Dubose",   55: "Jeff Reed",       57: "Terry Meier",
+  58: "Bre Charmichal",  59: "David O'Brien",   67: "Bill Wheeler",
+  68: "Bob Wheeler",     69: "Jeff Ackemann",   70: "Steve O'Brien - Trade",
+  71: "Christina Million",72: "Thornton Kennedy",76: "Craig Hey",
+  80: "Charlie Mentzer", 83: "Brad Waite",      84: "Judson Smith",
+  91: "Thomy Meier",     92: "Thomy Meier",     93: "Thomy Meier",
+  94: "Thomy Meier",     95: "Thomy Meier",     96: "Thomy Meier",
+  103:"Noah Abrams",     104:"Noah Abrams",     106:"Lyn Nabors",
+  107:"Patrick Noltemeyer",108:"Jason Janney",  137:"Jonathan Springer",
+  139:"Southern Spirits"
+};
+
+const TOTAL = 139;
+const BARREL = "Binder's Stash · Arcan Method 2026";
+let bottles = {};
+let sheetsUrl = '';
+let currentBottle = null;
+let currentStatus = 'available';
+let activeFilter = 'all';
+
+// ── INIT ──
+(function init() {
+  try {
+    const saved = localStorage.getItem('binders_stash_v1');
+    if (saved) {
+      bottles = JSON.parse(saved);
+    } else {
+      // Pre-fill from spreadsheet — all marked 'given', no date/occasion
+      for (const [num, name] of Object.entries(PRESET)) {
+        bottles[parseInt(num)] = { status: 'given', recipient: name, occasion: '', date: '' };
+      }
+    }
+    const url = localStorage.getItem('binders_sheets_url');
+    if (url) { sheetsUrl = url; document.getElementById('sheets-url-setting').value = url; }
+  } catch(e) {}
+  document.getElementById('modal-date').value = new Date().toISOString().split('T')[0];
+  renderGrid();
+  updateProgress();
+})();
+
+// ── PERSIST ──
+function persist() {
+  try { localStorage.setItem('binders_stash_v1', JSON.stringify(bottles)); } catch(e) {}
+}
+
+// ── RENDER GRID ──
+function renderGrid() {
+  const grid = document.getElementById('bottle-grid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= TOTAL; i++) {
+    const b = bottles[i] || { status: 'available' };
+    if (activeFilter !== 'all' && b.status !== activeFilter) continue;
+    const cell = document.createElement('div');
+    cell.className = 'bottle-cell ' + b.status;
+    cell.onclick = () => openModal(i);
+
+    const numSpan = document.createElement('span');
+    numSpan.className = 'cell-num';
+    numSpan.textContent = String(i).padStart(3,'0');
+    cell.appendChild(numSpan);
+
+    if (b.status === 'given' && b.recipient) {
+      const diag = document.createElement('div');
+      diag.className = 'diag-name';
+      // Build SVG diagonal text
+      const name = b.recipient;
+      // Truncate long names for display
+      const displayName = name.length > 14 ? name.split(' ').map(w=>w[0]).join('').toUpperCase() : name;
+      const svg = `<svg viewBox="0 0 62 62" xmlns="http://www.w3.org/2000/svg">
+        <text
+          x="50%" y="50%"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          transform="rotate(-35, 31, 31)"
+          font-family="DM Sans, sans-serif"
+          font-size="${displayName.length > 10 ? '6.5' : displayName.length > 7 ? '7.5' : '8.5'}"
+          font-weight="600"
+          fill="#4b5563"
+          opacity="0.9"
+          style="user-select:none;"
+        >${escapeXml(displayName)}</text>
+      </svg>`;
+      diag.innerHTML = svg;
+      cell.appendChild(diag);
+    }
+
+    if (b.status === 'reserved') {
+      // show reservation indicator already handled by CSS ::after
+    }
+
+    grid.appendChild(cell);
+  }
+}
+
+function escapeXml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function updateProgress() {
+  const given    = Object.values(bottles).filter(b => b.status === 'given').length;
+  const reserved = Object.values(bottles).filter(b => b.status === 'reserved').length;
+  const pct = (given / TOTAL * 100).toFixed(1);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-given').textContent = given + ' given' + (reserved ? ` · ${reserved} reserved` : '');
+  document.getElementById('progress-remain').textContent = (TOTAL - given - reserved) + ' available';
+  document.getElementById('header-stats').textContent = given + ' / ' + TOTAL;
+}
+
+// ── MODAL ──
+function openModal(num) {
+  currentBottle = num;
+  const b = bottles[num] || { status: 'available', recipient: '', occasion: '', date: '' };
+  currentStatus = b.status;
+  document.getElementById('modal-bottle-num').textContent = 'Bottle #' + String(num).padStart(3,'0');
+  document.getElementById('modal-bottle-sub').textContent = BARREL.toUpperCase() + ' · ' + b.status.toUpperCase();
+  document.getElementById('modal-recipient').value = b.recipient || '';
+  document.getElementById('modal-occasion').value  = b.occasion  || '';
+  document.getElementById('modal-date').value      = b.date      || new Date().toISOString().split('T')[0];
+  updateStatusBtns();
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modal-recipient').focus?.(), 300);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  currentBottle = null;
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+}
+
+function selectStatus(s) {
+  currentStatus = s;
+  updateStatusBtns();
+}
+
+function updateStatusBtns() {
+  ['available','reserved','given'].forEach(s => {
+    const btn = document.getElementById('btn-' + s);
+    btn.className = 'status-btn';
+    if (s === currentStatus) btn.classList.add('sel-' + s);
+  });
+  document.getElementById('recipient-fields').style.display = currentStatus !== 'available' ? 'block' : 'none';
+}
+
+function saveBottle() {
+  if (!currentBottle) return;
+  const recipient = document.getElementById('modal-recipient').value.trim();
+  const occasion  = document.getElementById('modal-occasion').value.trim();
+  const date      = document.getElementById('modal-date').value;
+  if (currentStatus !== 'available' && !recipient) {
+    showToast('Please enter a recipient name', 'error');
+    document.getElementById('modal-recipient').focus();
+    return;
+  }
+  bottles[currentBottle] = { status: currentStatus, recipient, occasion, date };
+  persist();
+  renderGrid();
+  updateProgress();
+  closeModal();
+  showToast('Bottle #' + String(currentBottle).padStart(3,'0') + ' saved', 'success');
+  if (sheetsUrl && currentStatus !== 'available') pushToSheets(currentBottle, bottles[currentBottle]);
+}
+
+// ── SHEETS ──
+async function pushToSheets(num, data) {
+  if (!sheetsUrl) return;
+  const payload = { type: 'bourbon', bottle: String(num).padStart(3,'0'), barrel: BARREL, status: data.status, recipient: data.recipient, occasion: data.occasion, date: data.date, timestamp: new Date().toISOString() };
+  try {
+    await fetch(sheetsUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    showToast('Saved to Sheets ✓', 'success');
+  } catch(e) {
+    showToast('Sheets save failed — data kept locally', 'error');
+  }
+}
+
+// ── SETTINGS ──
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+function saveSheetsSetting() {
+  sheetsUrl = document.getElementById('sheets-url-setting').value.trim();
+  try { localStorage.setItem('binders_sheets_url', sheetsUrl); } catch(e) {}
+  showToast('Endpoint saved', 'success');
+  document.getElementById('settings-panel').classList.remove('open');
+}
+
+// ── TOAST ──
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type + ' show';
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
