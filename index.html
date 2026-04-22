@@ -283,6 +283,8 @@
       <button class="btn-settings-save" onclick="saveSheetsSetting()">Save</button>
     </div>
     <div class="settings-help">Each save POSTs: bottle #, recipient, occasion, date, status.</div>
+    <button class="btn-settings-save" style="width:100%;padding:11px;font-size:13px;border-radius:10px;margin-top:10px;background:linear-gradient(135deg,#1e3a8a,#2563eb);" onclick="syncAllToSheets()">⬆ Sync All Existing Bottles to Sheets</button>
+    <div class="settings-help" style="margin-top:6px;" id="sync-status"></div>
   </div>
 
   <!-- Filter -->
@@ -529,6 +531,36 @@ function saveSheetsSetting() {
   try { localStorage.setItem('binders_sheets_url', sheetsUrl); } catch(e) {}
   showToast('Endpoint saved', 'success');
   document.getElementById('settings-panel').classList.remove('open');
+}
+
+// ── SYNC ALL TO SHEETS ──
+async function syncAllToSheets() {
+  if (!sheetsUrl) { showToast('No Sheets URL configured', 'error'); return; }
+  const given = Object.entries(bottles).filter(([,b]) => b.status !== 'available');
+  if (!given.length) { showToast('No bottles to sync', 'error'); return; }
+  const statusEl = document.getElementById('sync-status');
+  statusEl.textContent = 'Syncing ' + given.length + ' bottles...';
+  let count = 0;
+  for (const [num, data] of given) {
+    const payload = {
+      type: 'bourbon',
+      bottle: String(num).padStart(3,'0'),
+      barrel: BARREL,
+      status: data.status,
+      recipient: data.recipient || '',
+      occasion: data.occasion || '',
+      date: data.date || '',
+      timestamp: new Date().toISOString()
+    };
+    try {
+      await fetch(sheetsUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      count++;
+      statusEl.textContent = 'Synced ' + count + ' of ' + given.length + '...';
+      await new Promise(r => setTimeout(r, 150)); // small delay to avoid throttling
+    } catch(e) {}
+  }
+  statusEl.textContent = '✓ Synced ' + count + ' bottles to Sheets!';
+  showToast('Sync complete — ' + count + ' bottles uploaded', 'success');
 }
 
 // ── TOAST ──
